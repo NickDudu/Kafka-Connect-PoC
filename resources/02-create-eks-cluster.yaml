@@ -1,0 +1,46 @@
+# POC
+# EKS Cluster
+cat << EOF > eksworkshop.yaml
+---
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: eksworkshop-eksctl
+  region: ${AWS_REGION}
+  version: "1.22"
+
+vpc:
+  id: vpc-0644a1b1c3ee272c8
+  cidr: "10.0.0.0/16"
+  subnets:
+    private:
+      private-one:
+        id: subnet-xxxxxx
+      private-two:
+        id: subnet-xxxxxxx
+      
+
+
+managedNodeGroups:
+- name: nodegroup
+  desiredCapacity: 3
+  instanceType: m5.xlarge
+  desiredCapacity: 3
+  privateNetworking: true
+  ssh:
+    enableSsm: true
+  availabilityZones: ["${AZS[0]}", "${AZS[1]}", "${AZS[2]}"]
+  subnets:
+      - private-one
+      - private-two
+      #- private-three
+
+# To enable all of the control plane logs, uncomment below:
+# cloudWatch:
+#  clusterLogging:
+#    enableTypes: ["*"]
+
+secretsEncryption:
+  keyARN: ${MASTER_ARN}
+EOF
