@@ -144,5 +144,3 @@ kubectl -n kafka get kctr inventory-connector -o yaml:
 ./bin/kafka-console-consumer.sh --bootstrap-server xxx:9092 --topic fullfillment.test_db.Person --from-beginning   
 
 ##Once succesfull, you should see the schemalego has been automatically created under registry lego
-
-##Schema enforcement and evolution are still in testing
