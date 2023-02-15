@@ -12,7 +12,7 @@ curl https://repo1.maven.org/maven2/io/debezium/debezium-connector-mysql/2.1.0.F
 #Prepare a Dockerfile which adds those connector files to the Strimzi Kafka Connect image
 #Please note foler jsonschema-kafkaconnect-converter contain all plugins for jsonschema converter jars
 #Please read (https://github.com/awslabs/aws-glue-schema-registry) on how to maven build jar files. 
-
+#Copy all the jar from jsonschema-kafkaconnect-converter folder inlduing dependencies into ./jsonschema-kafkaconnect-converter
 cat <<EOF >Dockerfile
 FROM quay.io/strimzi/kafka:latest-kafka-3.3.2
 USER root:root
@@ -20,7 +20,8 @@ RUN microdnf install yum
 RUN yum install -y procps
 RUN mkdir -p /opt/kafka/plugins/debezium
 RUN mkdir -p /opt/kafka/plugins/jsonschema-kafkaconnect-converter
--connector-mysql/ COPY ./debezium/opt/kafka/plugins/debezium/
+-connector-mysql/ 
+COPY ./debezium-connector-mysql/ /debezium/opt/kafka/plugins/debezium/
 COPY ./jsonschema-kafkaconnect-converter/ /opt/kafka/plugins/jsonschema-kafkaconnect-converter/
 USER 1001
 EOF
