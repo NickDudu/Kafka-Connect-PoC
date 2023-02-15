@@ -30,6 +30,6 @@ In this solution, we deploy the following componnets:
 
 1. Set up MySQL and AWS MSK
 2. Set up EKS [here](./resources/02-create-eks-cluster.yaml)
-3. Set up the remianing resources [here](./03-create-kafka-resources.yaml)
+3. Set up the remianing resources [here](./resources/03-create-kafka-resources.yaml)
 
 ### Schema enforcement and evolution are still in testing
