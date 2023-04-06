@@ -20,7 +20,7 @@ RUN microdnf install yum
 RUN yum install -y procps
 RUN mkdir -p /opt/kafka/plugins/debezium
 RUN mkdir -p /opt/kafka/plugins/jsonschema-kafkaconnect-converter
-COPY ./debezium-connector-mysql/ /debezium/opt/kafka/plugins/debezium/
+COPY ./debezium-connector-mysql/ /opt/kafka/plugins/debezium/
 COPY ./jsonschema-kafkaconnect-converter/ /opt/kafka/plugins/jsonschema-kafkaconnect-converter/
 USER 1001
 EOF
