@@ -112,7 +112,7 @@ cat <<EOF | kubectl -n kafka apply -f -
       class: io.debezium.connector.mysql.MySqlConnector
       tasksMax: 1
       config:
-        database.hostname: "lego.czxiyt6h9uam.ap-northeast-1.rds.amazonaws.com"
+        database.hostname: "xxx"
         database.port: "3306"
         database.user: "admin"
         database.password: "xxx!"
