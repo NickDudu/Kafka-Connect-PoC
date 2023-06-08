@@ -44,6 +44,9 @@ insert into test_db.person values ('foo1', 18);
 insert into test_db.person values ('foo3', 18);
 insert into test_db.person values ('foo4', 18);
 ```
+We can see Glue schema registry succesfully registers the new schema without lastName in the Backward Compatability Mode
+![](./images/glue-schema-1.png)
+
 -- Backward Test Case 2: 通过
 ```
 alter table test_db.person add column email varchar(155) null;
