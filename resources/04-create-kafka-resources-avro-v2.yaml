@@ -159,7 +159,7 @@ EOF
 
 ##Create database and test the the schema enforement and evolution
 -----create db-------
-```
+
 drop database if exists test_db;
 create database if not exists test_db;
 drop table if exists test_db.person;
@@ -171,7 +171,6 @@ create table if not exists test_db.person
 )charset = utf8mb4;
 
 insert into test_db.person values ('foo','doe', 18);
-```
 
 ##A while after you’ve created this connector you can have a look at its status, 
 kubectl -n kafka get kctr inventory-connector -o yaml

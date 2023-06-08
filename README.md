@@ -1,7 +1,7 @@
 # Kafka-Connect-PoC
 The solution is for deploying high reliable industry Kafka Connect HA-solution(https://strimzi.io/) solution on AWS EKS. 
 
-##  Benefits
+## Benefits
 Who needs 
 - Event streaming and Lakehouse platform
 - A High Available and Cloud Native Soltuion
@@ -37,17 +37,22 @@ In this solution, we deploy the following componnets:
 
 ### Schema enforcement and evolution are still in testing
 -- Backward Test Case 1: 通过
+```
 alter table test_db.person drop column lastName;
 insert into test_db.person values ('foo2', 18);
 insert into test_db.person values ('foo1', 18);
 insert into test_db.person values ('foo3', 18);
 insert into test_db.person values ('foo4', 18);
+```
 -- Backward Test Case 2: 通过
+```
 alter table test_db.person add column email varchar(155) null;
 insert into test_db.person values ('foo1',18, 'abc');
+```
 -- Backward Test Case 3: 失败
+```
 alter table test_db.person add column address varchar(155) not null;
 insert into test_db.person values ('foo1',18, 'abc', 'xyz');
-
+```
 ### Confluent Schema Registry and Glue Schema Registry Architecture
 ![](./images/architecture2.png)
