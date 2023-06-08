@@ -1,0 +1,183 @@
+kubectl create namespace kafka
+
+#Then install the cluster operator and associated resources:
+curl -L https://github.com/strimzi/strimzi-kafka-operator/releases/download/0.33.0/strimzi-cluster-operator-0.33.0.yaml \
+  | sed 's/namespace: .*/namespace: kafka/' \
+  | kubectl apply -f - -n kafka 
+
+#First download and extract the Debezium MySQL connector archive
+curl https://repo1.maven.org/maven2/io/debezium/debezium-connector-mysql/2.1.0.Final/debezium-connector-mysql-2.1.0.Final-plugin.tar.gz \
+  | tar xvz
+
+#Prepare a Dockerfile which adds those connector files to the Strimzi Kafka Connect image
+#Please note foler avro-kafkaconnect-converter contain all plugins for jsonschema converter jars
+#Please read (https://github.com/awslabs/aws-glue-schema-registry) on how to maven build jar files. 
+#Copy all the jar from avro-kafkaconnect-converter folder inlduing dependencies into ./avro-kafkaconnect-converter
+cat <<EOF >Dockerfile
+FROM quay.io/strimzi/kafka:latest-kafka-3.3.2
+USER root:root
+RUN microdnf install yum
+RUN yum install -y procps
+RUN mkdir -p /opt/kafka/plugins/debezium
+RUN mkdir -p /opt/kafka/plugins/avro-kafkaconnect-converter
+COPY ./debezium-connector-mysql/ /opt/kafka/plugins/debezium/
+COPY ./avro-kafkaconnect-converter/ /opt/kafka/plugins/avro-kafkaconnect-converter/
+USER 1001
+EOF
+
+##You can use your own dokcerhub
+sudo docker build . -t dudufather/avroconnect:1.0
+docker push dudufather/avroconnect:1.0
+
+##Create table
+-- create person table
+drop table if exists person;
+create table if not exists person
+(
+    firstName    varchar(155)              null,
+    lastName     varchar(155)              null,
+    age          int                       not null
+)charset = utf8mb4;
+
+insert into person(firstName,lastName,age) values 
+('foo','doe', 18),
+('torri','lang', 19);
+
+##Create BD secret
+cat <<EOF > debezium-mysql-credentials.properties
+mysql_username: xxx
+mysql_password: xxx
+EOF
+kubectl -n kafka create secret generic my-sql-credentials \
+  --from-file=debezium-mysql-credentials.properties
+rm debezium-mysql-credentials.properties
+
+##Create a KafkaConnect
+cat <<EOF | kubectl -n kafka apply -f -
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnect
+metadata:
+  name: my-connect-cluster
+  annotations:
+  # use-connector-resources configures this KafkaConnect
+  # to use KafkaConnector resources to avoid
+  # needing to call the Connect REST API directly
+    strimzi.io/use-connector-resources: "true"
+spec:
+  image: dudufather/avroconnect:1.0
+  replicas: 3
+  bootstrapServers: "xxx:9092"
+  #tls:
+  #  trustedCertificates:
+  #    - secretName: my-cluster-cluster-ca-cert
+  #     certificate: ca.crt
+  config:
+    group.id: my-connect-cluster
+    offset.storage.topic: my-connect-cluster-offsets
+    config.storage.topic: my-connect-cluster-configs
+    status.storage.topic: my-connect-cluster-status
+    config.storage.replication.factor: 3
+    offset.storage.replication.factor: 3
+    status.storage.replication.factor: 3
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter
+    internal.key.converter: org.apache.kafka.connect.json.JsonConverter
+    internal.value.converter: org.apache.kafka.connect.json.JsonConverter
+    key.converter.schemas.enable: true
+    value.converter.schemas.enable: true
+    cleanup.policy: compact
+    log.cleanup.policy: compact
+    delete.retention.ms: 100 
+    segment.ms: 100
+    min.cleanable.dirty.ratio: 0.01
+    log.cleaner.backoff.ms: 0.01
+  externalConfiguration:
+    volumes:
+      - name: connector-config
+        secret:
+          secretName: my-sql-credentials
+EOF
+
+#Create Registry in Glue Schema Registry named lego
+##Create the connector including Glue Schema Registry Settings
+cat <<EOF | kubectl -n kafka apply -f -
+    apiVersion: kafka.strimzi.io/v1beta2
+    kind: KafkaConnector
+    metadata:
+      name: "inventory-connector"
+      namespace: kafka
+      labels:
+        strimzi.io/cluster: my-connect-cluster
+    spec:
+      class: io.debezium.connector.mysql.MySqlConnector
+      tasksMax: 1
+      config:
+        database.hostname: "lego.czxiyt6h9uam.ap-northeast-1.rds.amazonaws.com"
+        database.port: "3306"
+        database.user: "admin"
+        database.password: "xxx!"
+        #database.user: "${file:/opt/kafka/external-configuration/connector-config/debezium-mysql-credentials.properties:mysql_username}"
+        #database.password: "${file:/opt/kafka/external-configuration/connector-config/debezium-mysql-credentials.properties:mysql_password}"
+        database.server.id: "12345"
+        database.server.name: "lego"
+        database.whitelist: "test_db"
+        table.whitelist: "test_db.person"
+        schema.history.internal.kafka.bootstrap.servers: "xxx:9092"
+        schema.history.internal.kafka.topic: "schemahistory.fullfillment"
+        topic.prefix: "fullfillment"
+        include.schema.changes: "true"
+        key.converter: org.apache.kafka.connect.storage.StringConverter
+        value.converter: com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter
+        key.converter.schemas.enable: false
+        internal.key.converter.schemas.enable: false
+        internal.value.converter.schemas.enable: false
+        value.converter.schemas.enable: true
+        key.converter.endpoint: https://glue.ap-northeast-1.amazonaws.com
+        key.converter.region: ap-northeast-1
+        key.converter.schemaAutoRegistrationEnabled: true
+        key.converter.avroRecordType: GENERIC_RECORD
+        key.converter.dataFormat: JSON
+        #key.converter.schemaName: legoschema
+        value.converter.endpoint: https://glue.ap-northeast-1.amazonaws.com
+        value.converter.region: ap-northeast-1
+        value.converter.schemaAutoRegistrationEnabled: true
+        value.converter.avroRecordType: GENERIC_RECORD
+        value.converter.dataFormat: JSON
+        #key.converter.schemaName: avro
+        #Value.converter.schemaName: avro
+        key.converter.registry.name: legopoc
+        value.converter.registry.name: legopoc
+        #key.converter.compatibility: FORWARD
+        #value.converter.compatibility: FORWARD
+        # transforms: unwrap
+        # transforms.unwrap.type: io.debezium.transforms.ExtractNewRecordState
+        # transforms.unwrap.drop.tombstones: false
+        # transforms.unwrap.delete.handling.mode: rewrite
+        # transforms.unwrap.add.fields: op,source.ts_ms
+        #internal.value.converter: com.amazonaws.services.schemaregistry.kafkaconnect.jsonschema.JsonSchemaConverter
+EOF
+
+##Create database and test the the schema enforement and evolution
+-----create db-------
+drop database if exists test_db;
+create database if not exists test_db;
+drop table if exists test_db.person;
+create table if not exists test_db.person
+(
+    firstName    varchar(155)              null,
+    lastName     varchar(155)              null,
+    age          int                       not null
+)charset = utf8mb4;
+
+insert into test_db.person values ('foo','doe', 18);
+
+##A while after you’ve created this connector you can have a look at its status, 
+kubectl -n kafka get kctr inventory-connector -o yaml
+
+##List the topics
+./bin/kafka-topics.sh --bootstrap-server xxx:9092 --list
+
+##Consume the topic from DB
+./bin/kafka-console-consumer.sh --bootstrap-server xxx:9092 --topic fullfillment.test_db.person --from-beginning   
+
+##Once succesfull, you should see the schemalego has been automatically created under registry lego
