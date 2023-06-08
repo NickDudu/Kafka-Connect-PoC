@@ -57,8 +57,9 @@ insert into test_db.person values ('foo1',18, 'abc');
 alter table test_db.person add column address varchar(155) not null;
 insert into test_db.person values ('foo1',18, 'abc', 'xyz');
 ```
-### Glue Spark consumer
-example of pyspark in Glue to consume the topic
+### Glue Spark consumer is still in testing
+
+Example of pyspark in Glue to consume the topic
 ```python
 import sys
 from awsglue.transforms import *
@@ -153,6 +154,22 @@ job.commit()
 
 Data consumed from Topic within Glue Job output log
 ![](./images/glue-consumer-1.png)
+
+After we insert a new row in MySQL
+![](./images/glue-consumer-2.png)
+
+We can see the new row in output log
+![](./images/glue-consumer-3.png)
+
+Now, we can test the schema evolution in the Backward compatibility mode by add a new column named 'email'
+```
+alter table test_db.person add column email varchar(155) null;
+insert into test_db.person values ('foo1',18, 'nick@hotmail.com');
+```
+
+New shcema version is generated
+![](./images/glue-consumer-4.png)
+![](./images/glue-consumer-5.png)
 
 
 ### Confluent Schema Registry and Glue Schema Registry Architecture
